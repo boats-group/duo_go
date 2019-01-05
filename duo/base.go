@@ -1,0 +1,117 @@
+package duo
+
+import (
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	log "github.com/sirupsen/logrus"
+)
+
+var (
+	duoPrefix           = "TX"
+	appPrefix           = "APP"
+	authPrefix          = "AUTH"
+	enrollPrefix        = "ENROLL"
+	enrollRequestPrefix = "ENROLL_REQUEST"
+
+	duoExpiration = 300
+	appExpiration = 3600
+
+	integrationKeyLen = 20
+	secretKeyLen      = 40
+	appKeyLen         = 40
+)
+
+func hmacSha1(secret string, message string) string {
+	hash := hmac.New(sha1.New, []byte(secret))
+	hash.Write([]byte(message))
+	checksum := hex.EncodeToString(hash.Sum(nil))
+
+	return checksum
+}
+
+func signPayload(secret string, payload []string, prefix string, ttl int) string {
+	log.WithFields(log.Fields{
+		"secret":  secret,
+		"payload": strings.Join(payload, "|"),
+		"prefix":  prefix,
+		"ttl":     ttl,
+	}).Debug("signPayload:in")
+
+	payloadExpiration := strconv.FormatInt(time.Now().Local().Add(time.Second*time.Duration(ttl)).Unix(), 10)
+	content := strings.Join(append(payload, []string{payloadExpiration}...), "|")
+	encodedContent := base64.StdEncoding.EncodeToString([]byte(content))
+	cookie := fmt.Sprintf("%s|%s", prefix, encodedContent)
+	signature := hmacSha1(secret, cookie)
+
+	log.WithFields(log.Fields{
+		"expiration": payloadExpiration,
+		"content":    content,
+		"cookie":     cookie,
+		"signature":  signature,
+	}).Debug("signPayload:out")
+
+	return fmt.Sprintf("%s|%s", cookie, signature)
+}
+
+func parsePayload(secret string, payload string, prefix string, key string) (string, error) {
+	log.WithFields(log.Fields{
+		"secret":  secret,
+		"payload": payload,
+		"prefix":  prefix,
+		"key":     key,
+	}).Debug("parsePayload:in")
+
+	// Parse payload data
+	payloadValues := strings.Split(payload, "|")
+	if len(payloadValues) != 3 {
+		return "", fmt.Errorf("invalid payload format")
+	}
+
+	// Validate payload signature (HMAC-SHA1)
+	payloadPrefix, payloadContent, payloadSignature := payloadValues[0], payloadValues[1], payloadValues[2]
+	payloadCookie := fmt.Sprintf("%s|%s", payloadPrefix, payloadContent)
+	signature := hmacSha1(secret, payloadCookie)
+	if !hmac.Equal([]byte(hmacSha1(secret, payloadSignature)), []byte(hmacSha1(secret, signature))) {
+		return "", fmt.Errorf("signature hash does not match")
+	}
+
+	// Validate payload prefix
+	if payloadPrefix != prefix {
+		return "", fmt.Errorf("payload prefix does not match")
+	}
+
+	// Validate payload content (Base64)
+	decodedContent, err := base64.StdEncoding.DecodeString(payloadContent)
+	contentValues := strings.Split(string(decodedContent), "|")
+	if err != nil || len(contentValues) != 3 {
+		return "", fmt.Errorf("payload content is invalid")
+	}
+
+	// Validate payload expiration
+	timestamp := time.Now().Local().Unix()
+	payloadExpiration, err := strconv.ParseInt(contentValues[2], 10, 64)
+	if err != nil || payloadExpiration < timestamp {
+		return "", fmt.Errorf("payload expiration is invalid")
+	}
+
+	// Validate payload key
+	payloadKey := contentValues[1]
+	if payloadKey != key {
+		return "", fmt.Errorf("payload key does not match")
+	}
+
+	// Validate payload username
+	payloadUsername := contentValues[0]
+	if payloadUsername == "" {
+		return "", fmt.Errorf("payload username is invalid")
+	}
+
+	return payloadUsername, nil
+}

@@ -1,0 +1,22 @@
+language: go
+
+go:
+  - 1.11.x
+  - master
+
+env:
+  global:
+    - GO111MODULE=on
+
+matrix:
+  allow_failures:
+    - go: master
+
+install:
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
+
+script:
+  - cd duo
+  - go test -v --coverprofile=cover.out ./...
+  - goveralls --coverprofile=cover.out --service=travis-ci
