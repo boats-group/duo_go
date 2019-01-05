@@ -19,4 +19,4 @@ install:
 script:
   - cd duo
   - go test -v --coverprofile=cover.out ./...
-  - goveralls --coverprofile=cover.out --service=travis-ci
+  # - goveralls --coverprofile=cover.out --service=travis-ci
