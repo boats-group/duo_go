@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"duo"
 	"flag"
 	"fmt"
 	"html/template"
@@ -11,6 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"time"
+
+	duo "github.com/boats-group/duo_go"
 )
 
 type callbackParameters struct {

@@ -1,5 +1,5 @@
 module duo_web
 
-replace duo => ../../duo
+replace github.com/boats-group/duo_go => ../../duo
 
-require duo v0.0.0
+require github.com/boats-group/duo_go v0.0.0
