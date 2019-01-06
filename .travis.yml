@@ -28,8 +28,7 @@ script:
 
   # run tests on a standard platform
   - go vet ./...
-  - go test -v ./... -coverprofile=../coverage.txt -covermode=atomic
-  - go test -v ./... -race
+  - go test -v ./... -race -coverprofile=coverage.txt -covermode=atomic
 
 after_success:
   # Upload coverage results to codecov.io
