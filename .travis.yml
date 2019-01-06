@@ -15,11 +15,22 @@ matrix:
   allow_failures:
     - go: master
 
-install:
-  - go get golang.org/x/tools/cmd/cover
-  - go get github.com/mattn/goveralls
-
 script:
+  # switch to module directory
   - cd duo
-  - go test -v --coverprofile=cover.out ./...
-  # - goveralls --coverprofile=cover.out --service=travis-ci
+
+  # build test for supported platforms
+  - GOOS=linux go build
+  - GOOS=darwin go build
+  - GOOS=freebsd go build
+  - GOOS=windows go build
+  - GOARCH=386 go build
+
+  # run tests on a standard platform
+  - go vet ./...
+  - go test -v ./... -coverprofile=coverage.txt -covermode=atomic
+  - go test -v ./... -race
+
+after_success:
+  # Upload coverage results to codecov.io
+  - bash <(curl -s https://codecov.io/bash)
