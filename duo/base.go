@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	logrus "github.com/sirupsen/logrus"
 )
 
 const (
@@ -47,38 +45,16 @@ func hmacSha1(secret string, message string) string {
 }
 
 func signPayload(secret string, payload []string, prefix string, ttl int) string {
-	logrus.WithFields(logrus.Fields{
-		"secret":  secret,
-		"payload": strings.Join(payload, "|"),
-		"prefix":  prefix,
-		"ttl":     ttl,
-	}).Debug("signPayload:in")
-
 	expiration := strconv.FormatInt(time.Now().Local().Add(time.Second*time.Duration(ttl)).Unix(), 10)
 	content := strings.Join(append(payload, []string{expiration}...), "|")
 	encodedContent := base64.StdEncoding.EncodeToString([]byte(content))
 	cookie := fmt.Sprintf("%s|%s", prefix, encodedContent)
 	signature := hmacSha1(secret, cookie)
 
-	logrus.WithFields(logrus.Fields{
-		"expiration": expiration,
-		"content":    content,
-		"cookie":     cookie,
-		"signature":  signature,
-	}).Debug("signPayload:out")
-
 	return fmt.Sprintf("%s|%s", cookie, signature)
 }
 
 func parsePayload(secret string, payload string, prefix string, key string) (string, error) {
-	logrus.WithFields(logrus.Fields{
-		"secret":  secret,
-		"payload": payload,
-		"prefix":  prefix,
-		"key":     key,
-	}).Debug("parsePayload:in")
-
-	// Parse payload data
 	payloadValues := strings.Split(payload, "|")
 	if len(payloadValues) != 3 {
 		return "", fmt.Errorf(errParsePayloadInvalidPayload)
