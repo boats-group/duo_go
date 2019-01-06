@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -82,7 +81,7 @@ func parsePayload(secret string, payload string, prefix string, key string) (str
 	// Parse payload data
 	payloadValues := strings.Split(payload, "|")
 	if len(payloadValues) != 3 {
-		return "", errors.New(errParsePayloadInvalidPayload)
+		return "", fmt.Errorf(errParsePayloadInvalidPayload)
 	}
 
 	// Validate payload signature (HMAC-SHA1)
@@ -90,38 +89,38 @@ func parsePayload(secret string, payload string, prefix string, key string) (str
 	payloadCookie := fmt.Sprintf("%s|%s", payloadPrefix, payloadContent)
 	signature := hmacSha1(secret, payloadCookie)
 	if !hmac.Equal([]byte(hmacSha1(secret, payloadSignature)), []byte(hmacSha1(secret, signature))) {
-		return "", errors.New(errParsePayloadInvalidSignature)
+		return "", fmt.Errorf(errParsePayloadInvalidSignature)
 	}
 
 	// Validate payload prefix
 	if payloadPrefix != prefix {
-		return "", errors.New(errParsePayloadInvalidPrefix)
+		return "", fmt.Errorf(errParsePayloadInvalidPrefix)
 	}
 
 	// Validate payload content (Base64)
 	decodedContent, err := base64.StdEncoding.DecodeString(payloadContent)
 	contentValues := strings.Split(string(decodedContent), "|")
 	if err != nil || len(contentValues) != 3 {
-		return "", errors.New(errParsePayloadInvalidContent)
+		return "", fmt.Errorf(errParsePayloadInvalidContent)
 	}
 
 	// Validate payload expiration
 	timestamp := time.Now().Local().Unix()
 	payloadExpiration, err := strconv.ParseInt(contentValues[2], 10, 64)
 	if err != nil || payloadExpiration < timestamp {
-		return "", errors.New(errParsePayloadInvalidExpiration)
+		return "", fmt.Errorf(errParsePayloadInvalidExpiration)
 	}
 
 	// Validate payload key
 	payloadKey := contentValues[1]
 	if payloadKey != key {
-		return "", errors.New(errParsePayloadInvalidKey)
+		return "", fmt.Errorf(errParsePayloadInvalidKey)
 	}
 
 	// Validate payload username
 	payloadUsername := contentValues[0]
 	if payloadUsername == "" {
-		return "", errors.New(errParsePayloadInvalidUsername)
+		return "", fmt.Errorf(errParsePayloadInvalidUsername)
 	}
 
 	return payloadUsername, nil
